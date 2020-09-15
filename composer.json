@@ -1,0 +1,23 @@
+{
+    "name": "recordlog/recordlog",
+    "description": "Common interface for logging libraries",
+    "keywords": ["monolog", "psr", "psr-3", "log"],
+    "homepage": "https://github.com/Coco-Lily/recordLog.git",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Coco-Lily",
+            "homepage": "https://github.com/Coco-Lily/recordLog.git"
+        }
+    ],
+    "require": {
+        "php": ">=7.2.0",
+        "psr/log": "^1.0.1",
+        "monolog/monolog": "^2.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Recordlog\\": "src/Recordlog"
+        }
+    }
+}

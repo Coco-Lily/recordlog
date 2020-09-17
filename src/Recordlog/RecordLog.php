@@ -1,6 +1,7 @@
 <?php
 namespace RecordLog;
 
+use think\facade\Env;
 use Psr\Log\LoggerInterface;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\RotatingFileHandler;
@@ -20,7 +21,7 @@ class RecordLog implements LoggerInterface
      * 日志设置
      */
     protected $config = [
-        'path'        		=> '',			// 日志保存目录，默认runtime
+        'path'        		=> '',			// 日志保存目录，默认runtime->recordlogs
         'level' 			=> 'debug',		// 日志记录级别
         'max_files'			=> 0,			// 最大日志保留天数，超过删除 0无限制
         'file_permission'	=> 0666,		// 文件权限
@@ -36,22 +37,24 @@ class RecordLog implements LoggerInterface
         if (!empty($config['close'])) {
             $this->allowWrite = false;
         }
+
+        //获取runtime目录
+        $runtimePath = Env::get('runtime_path');
  
         if (empty($this->config['path'])) {
-            $this->config['path'] = __DIR__ . 'data/logs' . DIRECTORY_SEPARATOR;
+            $this->config['path'] = $runtimePath . 'recordlogs' . DIRECTORY_SEPARATOR;
         } elseif (substr($this->config['path'], -1) != DIRECTORY_SEPARATOR) {
             $this->config['path'] .= DIRECTORY_SEPARATOR;
         }
     }
  
- 
     /**
      * 创建日志
      * @return mixed
      */
-    private function createLogger()
+    private function createLogger($name)
     {
-        if (empty($this->loggers)) {
+        if (empty($this->loggers[$name])) {
             // 根据业务域名与方法名进行日志名称的确定
             $channel	= $this->config['channel'];
             // 日志文件目录
@@ -65,20 +68,17 @@ class RecordLog implements LoggerInterface
             // 创建日志
             $logger    = new Logger($channel);
             // 日志文件相关操作
-            $handler   = new RotatingFileHandler("{$path}.log", $maxFiles, $level, true, $filePermission);
-            // dump($handler);exit();
+            $handler   = new RotatingFileHandler("{$path}{$name}.log", $maxFiles, $level, true, $filePermission);
             // 日志格式
             $formatter = new LineFormatter("%datetime% %channel%:%level_name% %message% %context% %extra%\n", "Y-m-d H:i:s", false, true);
  
             $handler->setFormatter($formatter);
             $logger->pushHandler($handler);
  
-            $this->loggers = $logger;
+            $this->loggers[$name] = $logger;
         }
-        return $this->loggers;
+        return $this->loggers[$name];
     }
- 
- 
  
     /**
      * 记录日志信息
@@ -93,7 +93,7 @@ class RecordLog implements LoggerInterface
         if (!$this->allowWrite) {
             return;
         }
-        $logger = $this->createLogger();
+        $logger = $this->createLogger($level);
         $level = Logger::toMonologLevel($level);
         if (!is_int($level)) $level = Logger::INFO;
         if (version_compare(PCRE_VERSION, '7.0.0', '>=')) {
@@ -111,9 +111,6 @@ class RecordLog implements LoggerInterface
         $message = sprintf('==> LOG: %s -- %s', $message, $trace);
         return $logger->addRecord($level, $message, $context);
     }
- 
- 
- 
  
     /**
      * 记录日志信息

@@ -5,7 +5,7 @@ recordLog
 ----
 
 ```bash
-composer require recordlog/recordlog
+composer require "recordlog/recordlog @dev"
 ```
 
 使用：

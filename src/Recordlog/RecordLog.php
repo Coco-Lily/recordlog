@@ -5,6 +5,9 @@ use think\facade\Env;
 use Psr\Log\LoggerInterface;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\RotatingFileHandler;
+use Monolog\Processor\UidProcessor;
+use Monolog\Processor\ProcessIdProcessor;
+use Monolog\Processor\WebProcessor;
 use Monolog\Logger;
  
 class RecordLog implements LoggerInterface
@@ -20,13 +23,7 @@ class RecordLog implements LoggerInterface
  	/**
      * 日志设置
      */
-    protected $config = [
-        'path'        		=> '',			// 日志保存目录，默认runtime->recordlogs
-        'level' 			=> 'debug',		// 日志记录级别
-        'max_files'			=> 0,			// 最大日志保留天数，超过删除 0无限制
-        'file_permission'	=> 0666,		// 文件权限
-        'channel' 			=> '影院管理平台'	// 日志通道名，平台名称
-    ];
+    protected $config = [];
  
     // 实例化并传入参数
     public function __construct($config = [])
@@ -62,7 +59,7 @@ class RecordLog implements LoggerInterface
             // 日志保存时间
             $maxFiles 	= $this->config['max_files'];
             // 日志等级
-            $level 		= Logger::toMonologLevel($this->config['level']);
+            $level 		= Logger::toMonologLevel($name);
             // 权限
             $filePermission =  $this->config['file_permission'];
             // 创建日志
@@ -70,10 +67,18 @@ class RecordLog implements LoggerInterface
             // 日志文件相关操作
             $handler   = new RotatingFileHandler("{$path}{$name}.log", $maxFiles, $level, true, $filePermission);
             // 日志格式
-            $formatter = new LineFormatter("%datetime% %channel%:%level_name% %message% %context% %extra%\n", "Y-m-d H:i:s", false, true);
- 
+            $formatter = new LineFormatter("%datetime%###%channel%###%level_name%###%message%###content:%context%###extra:%extra%\n", "Y-m-d H:i:s", false, true);
             $handler->setFormatter($formatter);
             $logger->pushHandler($handler);
+            // extra 信息
+            $logger->pushProcessor(new UidProcessor);       //extra Uid
+            $logger->pushProcessor(new ProcessIdProcessor); //extra Pid
+            $logger->pushProcessor(new WebProcessor);       //extra Web
+            $logger->pushProcessor(function ($record) { 
+                $record['extra']['dummy'] = 'Hello world!'; 
+             
+                return $record; 
+            });
  
             $this->loggers[$name] = $logger;
         }
@@ -96,19 +101,7 @@ class RecordLog implements LoggerInterface
         $logger = $this->createLogger($level);
         $level = Logger::toMonologLevel($level);
         if (!is_int($level)) $level = Logger::INFO;
-        if (version_compare(PCRE_VERSION, '7.0.0', '>=')) {
-            $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-            $idx       = 0;
-        } else {
-            $backtrace = debug_backtrace();
-            $idx       = 1;
-        }
-        $trace = basename($backtrace[$idx]['file']) . ":" . $backtrace[$idx]['line'];
-        if (!empty($backtrace[$idx + 1]['function'])) {
-            $trace .= '##';
-            $trace .= $backtrace[$idx + 1]['function'];
-        }
-        $message = sprintf('==> LOG: %s -- %s', $message, $trace);
+        
         return $logger->addRecord($level, $message, $context);
     }
  
